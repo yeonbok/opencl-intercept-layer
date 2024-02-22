@@ -6413,7 +6413,18 @@ void CLIntercept::checkTimingEvents()
 
     CEventList::iterator    current = m_EventList.begin();
     CEventList::iterator    next;
-
+    static int64_t start_enqueue_counter = -1;
+    static int64_t end_enqueue_counter = 0x7FFFFFFF;
+    char* val = getenv("START_COUNT");
+    if (val != nullptr && start_enqueue_counter == -1) {
+        start_enqueue_counter = atoi(val);
+        printf("Taylor) Start enqueue counter : %lld\n", start_enqueue_counter);
+    }
+    char* val2 = getenv("END_COUNT");
+    if (val2 != nullptr && end_enqueue_counter == 0x7FFFFFFF) {
+        end_enqueue_counter = atoi(val2);
+        printf("Taylor) End enqueue counter : %lld\n", end_enqueue_counter);
+    }
     while( current != m_EventList.end() )
     {
         cl_int  errorCode = CL_SUCCESS;
@@ -6421,8 +6432,16 @@ void CLIntercept::checkTimingEvents()
 
         next = current;
         ++next;
-
         const SEventListNode& node = *current;
+        if ((static_cast<int64_t>(node.EnqueueCounter) <= start_enqueue_counter) || ((end_enqueue_counter < 0x7FFFFFFF) && (static_cast<int64_t>(node.EnqueueCounter) > end_enqueue_counter))) {
+            m_EventList.erase(current);
+            current = next;
+            continue;
+        } else if (start_enqueue_counter < 0 && node.EnqueueCounter == 0) {
+            printf("Taylor) start dump from EnqueueCounter: %lld\n", 0);
+        } else if (node.EnqueueCounter == start_enqueue_counter) {
+            printf("Taylor) start dump from EnqueueCounter: %lld\n", node.EnqueueCounter);
+        }
 
         errorCode = dispatch().clGetEventInfo(
             node.Event,
